@@ -585,6 +585,20 @@ async function getDetector(){
   if(window.BarcodeDetectionAPI&&BarcodeDetectionAPI.BarcodeDetector){try{return DETECTOR=new BarcodeDetectionAPI.BarcodeDetector({formats:SCAN_FORMATS});}catch(e){}}
   return null;
 }
+/* Explica por qué no abrió la cámara y qué hacer, según el teléfono y el error */
+function enAppInterna(){const u=navigator.userAgent||"";return /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)|MicroMessenger|Snapchat|TikTok/i.test(u);}
+function camaraAyuda(e){
+  const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent),nav=ios?"Safari":"Chrome",n=e&&e.name||"";
+  let t;
+  if(!window.isSecureContext)t="Abre la app desde el link oficial https://bodega-yagan.github.io/ubicaciones-cd/.";
+  else if(enAppInterna())t=`Estás dentro de otra app (WhatsApp u otra). Abre el link en <b>${nav}</b>: toca ⋮ o el ícono de compartir → <b>Abrir en ${nav}</b>.`;
+  else if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)t=`Este navegador no permite la cámara en vivo. Abre la app en <b>${nav}</b> actualizado.`;
+  else if(n==="NotAllowedError")t=ios?"La cámara está bloqueada. Ve a <b>Ajustes → Safari → Cámara → Permitir</b> (o toca <b>aA</b> en la barra → Configuración del sitio web → Cámara) y vuelve a intentar.":"La cámara está bloqueada. Toca el <b>candado</b> junto a la dirección → <b>Permisos → Cámara → Permitir</b> y vuelve a intentar.";
+  else if(n==="NotReadableError"||n==="TrackStartError")t="Otra app está usando la cámara (WhatsApp, cámara, videollamada). Ciérrala y toca Reintentar.";
+  else if(n==="NotFoundError"||n==="OverconstrainedError")t="No se encontró una cámara disponible en este teléfono.";
+  else t="No se pudo abrir la cámara en vivo"+(n?" ("+esc(n)+")":"")+". Toca Reintentar o cierra y vuelve a abrir la app.";
+  return t+`<div class="actions" style="margin-top:12px"><button type="button" class="sm" id="scanRetry" style="background:#fff;color:#000">Reintentar cámara</button>${enAppInterna()?`<button type="button" class="sm" id="scanCopy" style="background:#333;color:#fff">Copiar link</button>`:""}</div><div style="margin-top:12px;opacity:.8;font-size:.85rem">También puedes tomar una foto del código o escribirlo abajo.</div>`;
+}
 async function openScanner(title,onCode,continuous){
   Sc.on=onCode;Sc.cont=continuous;Sc.last="";Sc.seen=0;
   $("#scanTitle").textContent=title;$("#scanLast").textContent=continuous?"Apunta a cada código. Se suma solo.":"Apunta al código de barras.";
@@ -593,7 +607,12 @@ async function openScanner(title,onCode,continuous){
   const v=$("#scanVideo");
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error("sin cámara");
-    const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720},advanced:[{focusMode:"continuous"}]}});
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720},advanced:[{focusMode:"continuous"}]}});}
+    catch(e1){ if(e1&&e1.name==="NotAllowedError")throw e1;
+      // reintento con una configuración mínima (teléfonos que no aceptan resolución o enfoque)
+      try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:"environment"}});}
+      catch(e2){ if(e2&&e2.name==="NotAllowedError")throw e2; stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true}); } }
     if($("#scanOv").hidden){stream.getTracks().forEach(t=>t.stop());return;}
     Sc.stream=stream;v.setAttribute("playsinline","");v.muted=true;v.srcObject=stream;await v.play();
     const track=stream.getVideoTracks()[0];
@@ -614,7 +633,9 @@ async function openScanner(title,onCode,continuous){
   }catch(e){
     if(Sc.stream){Sc.stream.getTracks().forEach(t=>t.stop());Sc.stream=null;}
     $("#scanVideo").hidden=true;$("#scanFrame").hidden=true;$("#scanFb").hidden=false;
-    $("#scanFbMsg").textContent=e&&e.name==="NotAllowedError"?"No hay permiso para usar la cámara. Actívalo en el navegador (ícono de candado o Ajustes → Safari/Chrome → Cámara) y vuelve a intentar.":"No se pudo abrir la cámara en vivo. Puedes tomar una foto del código o escribirlo.";
+    $("#scanFbMsg").innerHTML=camaraAyuda(e);
+    const rb=$("#scanRetry");if(rb)rb.onclick=()=>{closeScanner();openScanner(title,onCode,continuous);};
+    const cb=$("#scanCopy");if(cb)cb.onclick=async()=>{try{await navigator.clipboard.writeText(location.href.split("#")[0]);cb.textContent="Link copiado ✓";}catch(x){cb.textContent=location.href.split("#")[0];}};
   }
 }
 function hit(raw){
