@@ -552,7 +552,7 @@ function showTab(t){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
-const CLIENT_VERSION="15";
+const CLIENT_VERSION="16";
 async function checkVersion(){
   try{const e=await call("api_estado");
     $("#verBanner").innerHTML=e.version&&e.version!==CLIENT_VERSION?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.reload()">Cargar</button></div>`:"";
@@ -677,7 +677,7 @@ async function loadLoc(){
     const rows=await api("api_ubicacion",u);if(C.ubic!==u)return;C.rows=rows;
     const tot=rows.reduce((s,r)=>s+r.cant,0);
     $("#locSum").textContent=rows.length?`En esta ubicación: ${rows.length} producto${rows.length===1?"":"s"} · ${Q(tot)} u.`:"En esta ubicación: vacía";
-    $("#locList").innerHTML=rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code);return `<button class="row" type="button" data-i="${i}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${it&&+it.it[4]?" · "+cajasTxt(r.cant,+it.it[4]):""}${r.op?" · "+esc(r.op)+" "+fmtDate(r.ts):""}</div></div><span class="qty">${Q(r.cant)}</span></button>`}).join(""):`<div class="empty">Sin productos registrados. Escanea el primero.</div>`;
+    $("#locList").innerHTML=rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code);return `<button class="row" type="button" data-i="${i}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${it&&+it.it[4]?" · "+cjRow(r,+it.it[4]):""}${r.op?" · "+esc(r.op)+" "+fmtDate(r.ts):""}</div></div><span class="qty">${Q(r.cant)}</span></button>`}).join(""):`<div class="empty">Sin productos registrados. Escanea el primero.</div>`;
     $("#locList").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.i],it=resolve(r.sku||r.code);movSheet(it?it.it:[r.sku,r.desc,r.code,"",0],false,!it&&!r.sku);});
   }catch(e){$("#locSum").textContent="En esta ubicación: "+errMsg(e);}
 }
@@ -810,7 +810,7 @@ function movSheet(it,bulk,unknown){
     if(known)(async()=>{try{
       const rows=await api("api_buscar",it[0],code),tot=rows.reduce((s,r)=>s+r.cant,0),gs=zoneGroups(rows);
       sh.querySelector("#mWhereS").textContent=rows.length?`Ubicaciones de este producto: ${rows.length} · ${Q(tot)} u.`:"Este producto no tiene ubicación registrada";
-      sh.querySelector("#mWhereL").innerHTML=gs.map(g=>`<div class="hint" style="font-weight:600">${g.z} · ${Q(g.tot)} u.</div><div style="display:flex;flex-wrap:wrap;gap:6px">${g.rows.map(r=>`<button type="button" class="sm ghost" data-pick="${esc(r.ubic)}" style="height:auto;padding:6px 10px;gap:8px">${esc(r.ubic)} <b class="mono">${Q(r.cant)}</b>${W.ux?`<span class="hint">${cajasTxt(r.cant,W.ux)}</span>`:""}</button>`).join("")}</div>`).join("");
+      sh.querySelector("#mWhereL").innerHTML=gs.map(g=>`<div class="hint" style="font-weight:600">${g.z} · ${Q(g.tot)} u.</div><div style="display:flex;flex-wrap:wrap;gap:6px">${g.rows.map(r=>`<button type="button" class="sm ghost" data-pick="${esc(r.ubic)}" style="height:auto;padding:6px 10px;gap:8px">${esc(r.ubic)} <b class="mono">${Q(r.cant)}</b>${W.ux?`<span class="hint">${cjRow(r,W.ux)}</span>`:""}</button>`).join("")}</div>`).join("");
       sh.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>setUbic(b.dataset.pick));
     }catch(e){sh.querySelector("#mWhereS").textContent="Ubicaciones: "+errMsg(e);}})();
     if(C.ubic)setUbic(C.ubic);else sh.querySelector("#mLoc").innerHTML=`<span class="hint" style="font-weight:600;color:var(--warn)">Falta la ubicación</span>`;
@@ -830,7 +830,7 @@ function movSheet(it,bulk,unknown){
       sh.querySelectorAll("button").forEach(b=>b.disabled=true);
       try{
         const r=await api("api_movimiento",{ubic,sku:it[0],code:code,desc:it[1],tipo,cant:n,detalle:W.detalle});
-        closeSheet();beep(true);toast(`${tipo} ${tipo==="Conteo"?"":tipo==="Entrada"?"+":"−"}${fmt(n)} · ${it[0]||code} en ${ubic} queda en ${Q(r.despues)}`,3000);
+        closeSheet();beep(true);toast(`${tipo} ${tipo==="Conteo"?"":tipo==="Entrada"?"+":"−"}${fmt(n)} · ${it[0]||code} en ${ubic} queda en ${Q(r.despues)} u.${r.cajas&&!CIEGO?" ("+cjRow({cant:r.despues,cajas:r.cajas},0)+")":""}`,3500);
         if(ubic!==C.ubic){C={ubic,rows:[]};LS.set("ucd_ubic_"+S.correo,ubic);renderCapture();}
         loadLoc();if(next==="scan")$("#btnScanProd").click();
       }catch(x){err.textContent=errMsg(x);sh.querySelectorAll("button").forEach(b=>b.disabled=false);}
@@ -931,6 +931,8 @@ async function search(raw){
 let CIEGO=false,TOMA=null;
 const Q=n=>CIEGO?"•••":fmt(n);
 function uxOf(sku,code){const r=resolve(sku||code);return r?+r.it[4]||0:0;}
+/* Composición real guardada en la ubicación (ej. 5×10 + 1×20 + 16 sueltas); si no existe, un aproximado con la caja estándar. */
+function cjRow(r,ux){if(CIEGO||!r.cant)return "";if(r.cajas)return r.cajas.replace(/×/g," cj × ").replace(/ cj × (\d+)/g," cj de $1");const e=cajasTxt(r.cant,ux);return e?"≈ "+e:"";}
 function cajasTxt(cant,ux){if(CIEGO||!ux||!cant)return "";const c=Math.floor(cant/ux),u=cant%ux;return c?`${c} cj${u?` + ${u} u.`:""}`:`${u} u. sueltas`;}
 function zoneGroups(rows){
   const g={Picking:[],Racks:[],Otras:[]};
@@ -945,11 +947,11 @@ async function showProduct(it,bulk,rows){
   $("#result").innerHTML=`<div class="card"><div class="eyebrow">Producto${bulk?" · caja maestra escaneada":""}</div>
     <div class="sku">${esc(it[0]||it[2])}</div><div>${esc(it[0]?it[1]:"Código no registrado en el maestro")}</div>
     <div class="kpis" style="grid-template-columns:repeat(${groups.length>1?3:2},1fr)">
-      <div class="kpi"><b>${Q(tot)}</b><span>Total u.${cajasTxt(tot,ux)?" · "+cajasTxt(tot,ux):""}</span></div>
+      <div class="kpi"><b>${Q(tot)}</b><span>Total u.${cajasTxt(tot,ux)?" · ≈ "+cajasTxt(tot,ux):""}</span></div>
       ${groups.map(g=>`<div class="kpi"><b>${Q(g.tot)}</b><span>${g.z}</span></div>`).join("")}
     </div>
     <div class="meta">${ux?`<span>1 caja = <span class="mono">${ux}</span> u.</span>`:`<span>Unidades por caja sin registrar</span>`}<span>${rows.length} ubicaci${rows.length===1?"ón":"ones"}</span></div></div>
-    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cajasTxt(r.cant,ux)?cajasTxt(r.cant,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
+    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cjRow(r,ux)?cjRow(r,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
 }
@@ -960,7 +962,7 @@ async function showUbic(code,rows){
   const li=locInfo(code),tot=rows.reduce((s,r)=>s+r.cant,0);
   $("#result").innerHTML=`<div class="card"><div class="eyebrow">Ubicación${L.byName.get(norm(code))?"":" · no registrada"}</div><div>${locHTML(code,true)}${zoneTag(code)}</div>${li?`<div class="hint">${esc(li)}</div>`:""}
     <div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div class="kpi"><b>${rows.length}</b><span>Productos</span></div><div class="kpi"><b>${Q(tot)}</b><span>Unidades</span></div></div>
-    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cajasTxt(r.cant,ux):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
+    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cjRow(r,ux):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
     <button class="beam" id="btnCapHere">Capturar en esta ubicación</button></div>`;
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
