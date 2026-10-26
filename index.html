@@ -552,7 +552,7 @@ function showTab(t){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
-const CLIENT_VERSION="16";
+const CLIENT_VERSION="17";
 async function checkVersion(){
   try{const e=await call("api_estado");
     $("#verBanner").innerHTML=e.version&&e.version!==CLIENT_VERSION?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.reload()">Cargar</button></div>`:"";
@@ -1064,7 +1064,7 @@ function opSheet(op){
   const self=op&&op.correo===S.correo;
   sheet(`<h2>${op?"Editar operador":"Dar acceso"}</h2>
     <label class="f">Nombre completo<input id="oN" value="${esc(op?op.nombre:"")}" required></label>
-    <label class="f">Correo electrónico<input id="oC" type="email" autocapitalize="none" value="${esc(op?op.correo:"")}" ${op?"disabled":""} required></label>
+    <label class="f">Correo electrónico<input id="oC" type="email" autocapitalize="none" value="${esc(op?op.correo:"")}" ${self?"disabled":""} required></label>${op&&!self?`<div class="hint">Si corriges el correo, el operador entra con el nuevo y conserva su clave y su historial.</div>`:""}
     <label class="f">Rol<select id="oR" ${self?"disabled":""}><option value="operador">Operador</option><option value="admin" ${op&&op.rol==="admin"?"selected":""}>Administrador (ve métricas y da accesos)</option></select></label>
     ${op&&!self?`<label class="f">Estado<select id="oA"><option value="1">Activo</option><option value="0" ${op.activo?"":"selected"}>Inactivo (no puede ingresar)</option></select></label>
     <label class="f">Clave<select id="oK"><option value="">${op.tieneClave?"Mantener la clave actual":"Pendiente: la creará en su primer ingreso"}</option>${op.tieneClave?`<option value="1">Reiniciar: creará una nueva al ingresar</option>`:""}</select></label>`:""}
@@ -1073,7 +1073,7 @@ function opSheet(op){
     <div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Guardar</button></div>`,
     sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;
       sh.onsubmit=async e=>{e.preventDefault();
-        const o={nuevo:!op,correo:op?op.correo:sh.querySelector("#oC").value,nombre:sh.querySelector("#oN").value,rol:sh.querySelector("#oR").value,
+        const o={nuevo:!op,correo:op?op.correo:sh.querySelector("#oC").value,correoNuevo:op&&!self?sh.querySelector("#oC").value.trim().toLowerCase():"",nombre:sh.querySelector("#oN").value,rol:sh.querySelector("#oR").value,
           activo:op&&!self?sh.querySelector("#oA").value==="1":true,reiniciar:op&&!self?sh.querySelector("#oK").value==="1":false};
         try{await api("api_guardarOperador",o);closeSheet();toast("Operador guardado");loadOps();}catch(x){sh.querySelector("#oErr").textContent=errMsg(x);}};});
 }
