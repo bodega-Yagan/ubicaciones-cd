@@ -1044,7 +1044,7 @@ function moveSheet(r){
     <div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Mover</button></div>`,
     sh=>{bindQty(sh,ux);sh.querySelector('[data-x="no"]').onclick=closeSheet;
       sh.querySelector("#fScan").onclick=()=>openScanner("Ubicación destino",c=>{sh.querySelector("#fTo").value=norm(c);return {msg:norm(c)};},false);
-      sh.onsubmit=async e=>{e.preventDefault();const c=sh.querySelector("#fC").value;try{const res=await api("api_mover",{sku:r.sku,code:r.code,desc:it?it.it[1]:r.desc,desde:r.ubic,hacia:(()=>{const v=sh.querySelector("#fTo").value,l=resolveLoc(v);if(!l)throw new Error("La ubicación "+norm(v)+" no está registrada. Regístrala escaneando su etiqueta en Capturar.");return l.name;})(),cant:c===""?null:+c});closeSheet();toast(`Movido: ${fmt(res.movido)} u.`);refreshSearch();}catch(x){sh.querySelector("#fErr").textContent=errMsg(x);}};});
+      sh.onsubmit=async e=>{e.preventDefault();const c=sh.querySelector("#fC").value;try{const res=await api("api_mover",{sku:r.sku,code:r.code,desc:it?it.it[1]:r.desc,desde:r.ubic,hacia:await (async()=>{const v=sh.querySelector("#fTo").value,n=await ensureLoc(v);if(!n)throw new Error("La ubicación "+norm(v)+" no está registrada. Regístrala escaneando su etiqueta en Capturar.");return n;})(),cant:c===""?null:+c});closeSheet();toast(`Movido: ${fmt(res.movido)} u.`);refreshSearch();}catch(x){sh.querySelector("#fErr").textContent=errMsg(x);}};});
 }
 
 /* ================= Hoja inferior ================= */
