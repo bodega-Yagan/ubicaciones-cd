@@ -1001,9 +1001,16 @@ async function showAisle(p){
   rows.forEach(r=>{(by[r.ubic]=by[r.ubic]||[]).push(r);});
   L.items.filter(l=>norm(l[0]).indexOf(p)===0).forEach(l=>{by[l[0]]=by[l[0]]||[];});
   const keys=Object.keys(by).sort(),tot=rows.reduce((s,r)=>s+r.cant,0);
+  /* Estado de cada ubicación: con stock, stock cero (tiene SKU pero 0 u.) o vacía (sin SKU asignado). */
+  const est=k=>!by[k].length?"vacia":by[k].some(r=>r.cant>0)?"stock":"cero";
+  const n={stock:0,cero:0,vacia:0};keys.forEach(k=>n[est(k)]++);
+  const tag=(t,c)=>`<span style="display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:${c}22;color:${c};margin-left:6px">${t}</span>`;
+  const line=r=>{const it=resolve(r.sku||r.code),d=it?it.it[1]:r.desc;
+    return `<div style="display:flex;gap:10px;justify-content:space-between;align-items:baseline;padding:3px 0"><div style="min-width:0"><span class="mono" style="font-weight:600">${esc(r.sku||r.code)}</span>${d?`<div class="s" style="overflow-wrap:anywhere">${esc(d)}</div>`:""}</div><b class="mono" style="white-space:nowrap${r.cant>0?"":";color:var(--bad)"}">${r.cant>0?Q(r.cant):"Stock 0"}</b></div>`;};
   $("#result").innerHTML=`<div class="card"><div class="eyebrow">Pasillo ${esc(p)} · ${zoneOf(p)}</div>
-    <div class="hint">${keys.length} ubicaciones · ${Q(tot)} u.</div>
-    <div class="rows">${keys.length?keys.map(k=>`<button type="button" class="row" data-u="${esc(k)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%;align-items:flex-start"><div class="grow">${locHTML(k)}<div class="s" style="margin-top:4px">${by[k].length?by[k].map(r=>esc(r.sku||r.code)+": "+Q(r.cant)).join(" · "):"Vacía"}</div></div></button>`).join(""):`<div class="empty">Sin ubicaciones registradas en este pasillo.</div>`}</div></div>`;
+    <div class="hint">${keys.length} ubicaciones · ${Q(tot)} u. · ${n.stock} con stock · ${n.cero} en stock 0 · ${n.vacia} vacía${n.vacia===1?"":"s"}</div>
+    <div class="rows">${keys.length?keys.map(k=>{const e=est(k);
+      return `<button type="button" class="row" data-u="${esc(k)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%;align-items:flex-start"><div class="grow" style="min-width:0">${locHTML(k)}${e==="vacia"?tag("Vacía","#64748b"):e==="cero"?tag("Stock 0","#c2410c"):""}<div style="margin-top:4px">${by[k].slice().sort((a,b)=>b.cant-a.cant).map(line).join("")}</div></div></button>`;}).join(""):`<div class="empty">Sin ubicaciones registradas en este pasillo.</div>`}</div></div>`;
   $("#result").querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>showUbic(b.dataset.u));
 }
 const refreshSearch=()=>cur&&(cur.type==="p"?showProduct(cur.it,cur.bulk):cur.type==="a"?showAisle(cur.code):showUbic(cur.code));
