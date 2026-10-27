@@ -685,7 +685,13 @@ let C={ubic:null,rows:[]};
 async function openLocation(code){
   const raw=String(code||"").trim();if(!raw)return;
   let name=null;try{name=await ensureLoc(raw);}catch(e){return toast(errMsg(e));}
-  if(!name){setTimeout(()=>locSheet(raw),60);return;}
+  if(!name){
+    /* Si el código es de un producto (no de una ubicación), mostrar dónde está en vez de pedir registrar una ubicación nueva. */
+    let prod=!!resolve(raw);
+    if(!prod){try{prod=(await api("api_buscar","",raw)).length>0;}catch(e){}}
+    if(prod){toast("Ese código es de un producto: aquí están sus ubicaciones");showTab("buscar");search(raw);return;}
+    setTimeout(()=>locSheet(raw),60);return;
+  }
   C={ubic:name,rows:[]};LS.set("ucd_ubic_"+S.correo,name);renderCapture();loadLoc();
 }
 function renderCapture(){
