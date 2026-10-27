@@ -552,7 +552,7 @@ function showTab(t){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
-const CLIENT_VERSION="17";
+const CLIENT_VERSION="18";
 async function checkVersion(){
   try{const e=await call("api_estado");
     $("#verBanner").innerHTML=e.version&&e.version!==CLIENT_VERSION?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.reload()">Cargar</button></div>`:"";
@@ -978,7 +978,7 @@ async function showProduct(it,bulk,rows){
       ${groups.map(g=>`<div class="kpi"><b>${Q(g.tot)}</b><span>${g.z}</span></div>`).join("")}
     </div>
     <div class="meta">${ux?`<span>1 caja = <span class="mono">${ux}</span> u.</span>`:`<span>Unidades por caja sin registrar</span>`}<span>${rows.length} ubicaci${rows.length===1?"ón":"ones"}</span></div></div>
-    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cjRow(r,ux)?cjRow(r,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
+    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cjRow(r,ux)?cjRow(r,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
 }
@@ -986,14 +986,27 @@ async function showUbic(code,rows){
   cur={type:"u",code};
   rows=rows||await api("api_ubicacion",code);
   rows.sort((a,b)=>(a.sku||a.code).localeCompare(b.sku||b.code));
-  const li=locInfo(code),tot=rows.reduce((s,r)=>s+r.cant,0);
+  const li=locInfo(code),tot=rows.reduce((s,r)=>s+r.cant,0),ceros=CIEGO?0:rows.filter(r=>!(r.cant>0)).length;
   $("#result").innerHTML=`<div class="card"><div class="eyebrow">Ubicación${L.byName.get(norm(code))?"":" · no registrada"}</div><div>${locHTML(code,true)}${zoneTag(code)}</div>${li?`<div class="hint">${esc(li)}</div>`:""}
     <div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div class="kpi"><b>${rows.length}</b><span>Productos</span></div><div class="kpi"><b>${Q(tot)}</b><span>Unidades</span></div></div>
-    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cjRow(r,ux):""}</div></div><span class="qty">${Q(r.cant)}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
-    <button class="beam" id="btnCapHere">Capturar en esta ubicación</button></div>`;
+    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cjRow(r,ux):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
+    <button class="beam" id="btnCapHere">Capturar en esta ubicación</button>
+    ${ceros?`<button class="ghost" id="btnVaciar" style="width:100%;margin-top:8px">${ceros===rows.length?"Dejar vacía":"Quitar SKU en stock 0 ("+ceros+")"}</button>`:""}</div>`;
+  const bv=$("#btnVaciar");if(bv)bv.onclick=()=>vaciarSheet(code,rows.filter(r=>!(r.cant>0)),ceros===rows.length);
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
   $("#btnCapHere").onclick=()=>{showTab("capturar");openLocation(code);};
+}
+function vaciarSheet(code,zeros,todo){
+  sheet(`<h2>${todo?"Dejar vacía":"Quitar SKU en stock 0"}</h2><div>${locHTML(code)}</div>
+    <div class="hint">Se quitan de esta ubicación ${zeros.length===1?"este SKU":"estos "+zeros.length+" SKU"} en stock 0${todo?" y la ubicación queda <b>Vacía</b>":""}. Lo que tiene stock no se toca.</div>
+    <div style="margin:8px 0">${zeros.map(r=>{const it=resolve(r.sku||r.code);return `<div style="padding:4px 0"><span class="mono" style="font-weight:600">${esc(r.sku||r.code)}</span><div class="s">${esc(it?it.it[1]:r.desc||"")}</div></div>`;}).join("")}</div>
+    <div class="err" id="vErr"></div>
+    <div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">${todo?"Dejar vacía":"Quitar"}</button></div>`,
+  sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;
+    sh.onsubmit=async e=>{e.preventDefault();sh.querySelectorAll("button").forEach(b=>b.disabled=true);
+      try{const r=await api("api_vaciarUbic",code);closeSheet();toast(r.quedan?`${r.quitados} SKU quitado(s)`:`${norm(code)} quedó vacía`);refreshSearch();if(C.ubic===norm(code))loadLoc();}
+      catch(x){sh.querySelector("#vErr").textContent=errMsg(x);sh.querySelectorAll("button").forEach(b=>b.disabled=false);}};});
 }
 async function showAisle(p){
   cur={type:"a",code:p};
