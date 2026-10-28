@@ -1283,12 +1283,18 @@ function renderInicio(){
       ${A.sinUbic.total>A.sinUbic.lista.length?`<div class="hint">Se muestran ${A.sinUbic.lista.length} de ${A.sinUbic.total}, los de mayor stock ERP.</div>`:""}</div>`});
   // 3. Zonas
   const z=k=>H.zonas.find(x=>x.zona===k)||{unidades:0,ubicaciones:0,skus:0},pk=z("Picking"),bc=z("Racks");
-  const maxP=Math.max(1,...H.pasillos.map(p=>p.unidades));
+  /* Total de ubicaciones registradas (incluye las vacías y en Stock 0) además de las que tienen stock. */
+  const regZ={},regA={};L.items.forEach(l=>{const u=norm(l[0]),zz=zoneOf(u);if(zz)regZ[zz]=(regZ[zz]||0)+1;if(/^(PK|BC)[A-Z]/.test(u)){const a=u.slice(0,3);regA[a]=(regA[a]||0)+1;}});
+  const pas=H.pasillos.map(p=>({...p,total:Math.max(p.ubicaciones,regA[p.pasillo]||0)}));
+  Object.keys(regA).forEach(a=>{if(!pas.some(p=>p.pasillo===a))pas.push({pasillo:a,zona:zoneOf(a),unidades:0,ubicaciones:0,total:regA[a]});});
+  pas.sort((a,b)=>a.pasillo.localeCompare(b.pasillo));
+  const ubTxt=(con,tot)=>tot>con?`${tot} ubicaciones · ${con} con stock`:`${tot} ubicaciones`;
+  const maxP=Math.max(1,...pas.map(p=>p.unidades));
   slides.push({t:"Zonas",html:`
-    <div class="zcards"><div class="zcard pk fadein"><span>PICKING · PK</span>${NQ(pk.unidades)}<span>unidades</span><span>${pk.ubicaciones} ubicaciones · ${pk.skus} productos</span></div>
-      <div class="zcard bc fadein"><span>RACKS · BC</span>${NQ(bc.unidades)}<span>unidades</span><span>${bc.ubicaciones} ubicaciones · ${bc.skus} productos</span></div></div>
+    <div class="zcards"><div class="zcard pk fadein"><span>PICKING · PK</span>${NQ(pk.unidades)}<span>unidades</span><span>${ubTxt(pk.ubicaciones,Math.max(pk.ubicaciones,regZ.Picking||0))} · ${pk.skus} productos</span></div>
+      <div class="zcard bc fadein"><span>RACKS · BC</span>${NQ(bc.unidades)}<span>unidades</span><span>${ubTxt(bc.ubicaciones,Math.max(bc.ubicaciones,regZ.Racks||0))} · ${bc.skus} productos</span></div></div>
     <div class="card"><div class="eyebrow">Unidades por pasillo</div>
-      ${H.pasillos.length?H.pasillos.map(p=>`<button type="button" data-aisle="${esc(p.pasillo)}" style="background:none;height:auto;padding:6px 0;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;font-weight:400;color:var(--ink)"><div class="meta" style="justify-content:space-between"><span><b class="mono">${esc(p.pasillo)}</b> · ${p.zona}</span><span class="hint">${Q(p.unidades)} u. · ${p.ubicaciones} ubic.</span></div><div class="bar2"><i class="${p.zona==="Picking"?"pk":p.zona==="Racks"?"bc":"ot"}" data-w="${CIEGO?100:Math.max(3,Math.round(p.unidades/maxP*100))}%"></i></div></button>`).join(""):`<div class="empty">Aún no hay stock registrado en ubicaciones.</div>`}
+      ${pas.length?pas.map(p=>`<button type="button" data-aisle="${esc(p.pasillo)}" style="background:none;height:auto;padding:6px 0;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;font-weight:400;color:var(--ink)"><div class="meta" style="justify-content:space-between"><span><b class="mono">${esc(p.pasillo)}</b> · ${p.zona}</span><span class="hint">${Q(p.unidades)} u. · ${p.total} ubic.${p.total>p.ubicaciones?` (${p.ubicaciones} con stock)`:""}</span></div><div class="bar2"><i class="${p.zona==="Picking"?"pk":p.zona==="Racks"?"bc":"ot"}" data-w="${CIEGO?100:Math.max(3,Math.round(p.unidades/maxP*100))}%"></i></div></button>`).join(""):`<div class="empty">Aún no hay stock registrado en ubicaciones.</div>`}
       <div class="hint">Toca un pasillo para ver qué hay en cada ubicación.</div></div>`});
   // 4. Ranking
   const R=H.ranking[hmRank],p3=R.slice(0,3),maxR=Math.max(1,...R.map(r=>r.lineas));
