@@ -552,9 +552,9 @@ function showTab(t){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
-const CLIENT_VERSION="19";
+const CLIENT_VERSION="20";let SERVER_VERSION=0;
 async function checkVersion(){
-  try{const e=await call("api_estado");
+  try{const e=await call("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
     $("#verBanner").innerHTML=e.version&&(parseFloat(e.version)||0)>(parseFloat(CLIENT_VERSION)||0)?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.replace(location.pathname+'?v='+Date.now())">Cargar</button></div>`:"";
     $("#verBanner").hidden=!$("#verBanner").innerHTML;}catch(x){}
 }
@@ -704,7 +704,8 @@ async function loadLoc(){
     const rows=await api("api_ubicacion",u);if(C.ubic!==u)return;C.rows=rows;
     const tot=rows.reduce((s,r)=>s+r.cant,0);
     $("#locSum").textContent=rows.length?`En esta ubicación: ${rows.length} producto${rows.length===1?"":"s"} · ${Q(tot)} u.`:"En esta ubicación: vacía";
-    $("#locList").innerHTML=rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code);return `<button class="row" type="button" data-i="${i}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${it&&+it.it[4]?" · "+cjRow(r,+it.it[4]):""}${r.op?" · "+esc(r.op)+" "+fmtDate(r.ts):""}</div></div><span class="qty">${Q(r.cant)}</span></button>`}).join(""):`<div class="empty">Sin productos registrados. Escanea el primero.</div>`;
+    $("#locList").innerHTML=rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code);return `<div class="row" style="padding:10px 0;align-items:center"><div class="grow" data-i="${i}" role="button" style="cursor:pointer;min-width:0"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${it&&+it.it[4]?" · "+cjRow(r,+it.it[4]):""}${r.op?" · "+esc(r.op)+" "+fmtDate(r.ts):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span>${CIEGO?"":`<button type="button" class="sm ghost" data-rm="${i}" style="color:var(--bad)">Quitar</button>`}</div>`}).join(""):`<div class="empty">Sin productos registrados. Escanea el primero.</div>`;
+    $("#locList").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>quitarSheet(rows[+b.dataset.rm]));
     $("#locList").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.i],it=resolve(r.sku||r.code);movSheet(it?it.it:[r.sku,r.desc,r.code,"",0],false,!it&&!r.sku);});
   }catch(e){$("#locSum").textContent="En esta ubicación: "+errMsg(e);}
 }
@@ -981,9 +982,10 @@ async function showProduct(it,bulk,rows){
       ${groups.map(g=>`<div class="kpi"><b>${Q(g.tot)}</b><span>${g.z}</span></div>`).join("")}
     </div>
     <div class="meta">${ux?`<span>1 caja = <span class="mono">${ux}</span> u.</span>`:`<span>Unidades por caja sin registrar</span>`}<span>${rows.length} ubicaci${rows.length===1?"ón":"ones"}</span></div></div>
-    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cjRow(r,ux)?cjRow(r,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
+    ${groups.length?groups.map(g=>`<div class="card"><div class="meta" style="justify-content:space-between"><span class="eyebrow">${g.z}</span><span class="hint"><b class="mono">${Q(g.tot)}</b> u.</span></div><div class="rows">${g.rows.map(r=>{const i=idx.get(r);return `<div class="row"><div class="grow">${locHTML(r.ubic)}<div class="s" style="margin-top:4px">${cjRow(r,ux)?cjRow(r,ux)+" · ":""}${fmtDate(r.ts)}${r.op?" · "+esc(r.op):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button>${CIEGO?"":`<button class="sm ghost" data-rm="${i}" style="color:var(--bad)">Quitar</button>`}</div>`}).join("")}</div></div>`).join(""):`<div class="card"><div class="empty">Este producto no tiene ubicación registrada todavía.</div></div>`}`;
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
+  $("#result").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>quitarSheet(rows[+b.dataset.rm]));
 }
 async function showUbic(code,rows){
   cur={type:"u",code};
@@ -992,13 +994,28 @@ async function showUbic(code,rows){
   const li=locInfo(code),tot=rows.reduce((s,r)=>s+r.cant,0),ceros=CIEGO?0:rows.filter(r=>!(r.cant>0)).length;
   $("#result").innerHTML=`<div class="card"><div class="eyebrow">Ubicación${L.byName.get(norm(code))?"":" · no registrada"}</div><div>${locHTML(code,true)}${zoneTag(code)}</div>${li?`<div class="hint">${esc(li)}</div>`:""}
     <div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div class="kpi"><b>${rows.length}</b><span>Productos</span></div><div class="kpi"><b>${Q(tot)}</b><span>Unidades</span></div></div>
-    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cjRow(r,ux):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button></div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
+    <div class="rows">${rows.length?rows.map((r,i)=>{const it=resolve(r.sku||r.code),ux=it?+it.it[4]||0:0;return `<div class="row"><div class="grow"><div class="t mono">${esc(r.sku||r.code)}</div><div class="s">${esc(it?it.it[1]:r.desc||"Código no registrado")}${ux?" · "+cjRow(r,ux):""}</div></div><span class="qty"${r.cant>0?"":' style="color:var(--bad)"'}>${r.cant>0?Q(r.cant):"Stock 0"}</span><button class="sm ghost" data-adj="${i}">Ajustar</button><button class="sm ghost" data-mv="${i}">Mover</button>${CIEGO?"":`<button class="sm ghost" data-rm="${i}" style="color:var(--bad)">Quitar</button>`}</div>`}).join(""):`<div class="empty">Ubicación vacía.</div>`}</div>
     <button class="beam" id="btnCapHere">Capturar en esta ubicación</button>
     ${ceros?`<button class="ghost" id="btnVaciar" style="width:100%;margin-top:8px">${ceros===rows.length?"Dejar vacía":"Quitar SKU en stock 0 ("+ceros+")"}</button>`:""}</div>`;
   const bv=$("#btnVaciar");if(bv)bv.onclick=()=>vaciarSheet(code,rows.filter(r=>!(r.cant>0)),ceros===rows.length);
   $("#result").querySelectorAll("[data-adj]").forEach(b=>b.onclick=()=>adjustSheet(rows[+b.dataset.adj]));
   $("#result").querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>moveSheet(rows[+b.dataset.mv]));
+  $("#result").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>quitarSheet(rows[+b.dataset.rm]));
   $("#btnCapHere").onclick=()=>{showTab("capturar");openLocation(code);};
+}
+function quitarSheet(r){
+  if(SERVER_VERSION&&SERVER_VERSION<20)return toast("Para quitar un SKU, el administrador debe actualizar Apps Script a la versión 20.",4500);
+  const it=resolve(r.sku||r.code),d=it?it.it[1]:r.desc||"";
+  sheet(`<h2>Quitar SKU de la ubicación</h2><div>${locHTML(r.ubic)}</div>
+    <div style="margin:8px 0"><span class="mono" style="font-weight:600">${esc(r.sku||r.code)}</span><div class="s">${esc(d)}</div></div>
+    ${r.cant>0?`<div class="banner warn">Este SKU tiene <b>${Q(r.cant)} u.</b> en esta ubicación. Al quitarlo, esas unidades salen del registro de la ubicación. Si las cambiaste de lugar, usa <b>Mover</b> en vez de Quitar.</div>`:`<div class="hint">Está en stock 0. Se quita de esta ubicación.</div>`}
+    <div class="err" id="qErr"></div>
+    <div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Quitar</button></div>`,
+  sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;
+    sh.onsubmit=async e=>{e.preventDefault();sh.querySelectorAll("button").forEach(b=>b.disabled=true);
+      try{await api("api_vaciarUbic",r.ubic,r.sku||"",r.code||"");closeSheet();toast(`${r.sku||r.code} quitado de ${r.ubic}`);
+        if(C.ubic===norm(r.ubic))loadLoc();if(cur&&$("#result").innerHTML)refreshSearch();}
+      catch(x){sh.querySelector("#qErr").textContent=errMsg(x);sh.querySelectorAll("button").forEach(b=>b.disabled=false);}};});
 }
 function vaciarSheet(code,zeros,todo){
   sheet(`<h2>${todo?"Dejar vacía":"Quitar SKU en stock 0"}</h2><div>${locHTML(code)}</div>
