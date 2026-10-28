@@ -211,6 +211,19 @@ th:first-child,td:first-child{text-align:left}
 select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
 @keyframes ld{from{background-position:-50% 0}to{background-position:150% 0}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Computador: aprovecha el ancho de la pantalla */
+@media (min-width:1024px){
+  .wrap{max-width:1240px}
+  header .wrap,nav .wrap{max-width:1240px}
+  #v-inicio .slides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;scroll-snap-type:none;align-items:start}
+  #v-inicio .slide{flex:none}
+  #v-inicio .dots{display:none}
+  .view:not(#v-inicio){max-width:980px;width:100%;margin-inline:auto}
+  .sheet-bg{align-items:center!important}
+  .sheet{border-radius:16px!important;max-height:90vh;overflow:auto}
+  nav button{font-size:.75rem}
+}
+@media (min-width:1500px){#v-inicio .slides{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -1325,7 +1338,7 @@ function renderInicio(){
   $("#hmDots").innerHTML=slides.map(()=>"<i></i>").join("");
   if(hmIdx>=slides.length)hmIdx=0;
   const sc=$("#hmSlides");sc.style.scrollBehavior="auto";sc.scrollLeft=hmIdx*sc.clientWidth;sc.style.scrollBehavior="";
-  hmMark(hmIdx);animateSlide(hmIdx);
+  hmMark(hmIdx);animateSlide(hmIdx);if(DESK())slides.forEach((_,i)=>animateSlide(i));
   // eventos
   $("#hmChips").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{hmPaused=Date.now();hmGo(+b.dataset.i);});
   sc.onscroll=()=>{const i=Math.round(sc.scrollLeft/Math.max(1,sc.clientWidth));if(i!==hmIdx){hmIdx=i;hmMark(i);animateSlide(i);}};
@@ -1339,9 +1352,10 @@ function renderInicio(){
   const av=$("#hmAviso");if(av)av.onclick=()=>sheet(`<h2>Aviso para el equipo</h2><div class="hint">Aparece arriba en el Inicio de todos. Déjalo vacío para quitarlo.</div><label class="f">Texto<textarea id="avT" rows="3" maxlength="400" style="font:500 1rem var(--f-body);padding:10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)">${esc(H.aviso?H.aviso.texto:"")}</textarea></label><div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Publicar</button></div>`,
     sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;sh.onsubmit=async e=>{e.preventDefault();try{await api("api_guardarAviso",sh.querySelector("#avT").value);closeSheet();toast("Aviso actualizado");loadInicio();}catch(x){toast(errMsg(x));}};});
   // avance automático
-  clearInterval(hmAuto);if(!RM)hmAuto=setInterval(()=>{if(currentTab()!=="inicio"||document.hidden||Date.now()-hmPaused<45000||$("#sheetHost").children.length)return;hmGo((hmIdx+1)%slides.length);},9000);
+  clearInterval(hmAuto);if(!RM)hmAuto=setInterval(()=>{if(DESK()||currentTab()!=="inicio"||document.hidden||Date.now()-hmPaused<45000||$("#sheetHost").children.length)return;hmGo((hmIdx+1)%slides.length);},9000);
 }
-function hmGo(i){const sc=$("#hmSlides");sc.scrollTo({left:i*sc.clientWidth,behavior:RM?"auto":"smooth"});hmIdx=i;hmMark(i);animateSlide(i);}
+const DESK=()=>matchMedia("(min-width:1024px)").matches;
+function hmGo(i){if(DESK()){const el=$("#hmSlides").children[i];if(el)el.scrollIntoView({behavior:RM?"auto":"smooth",block:"start"});hmIdx=i;hmMark(i);return;}const sc=$("#hmSlides");sc.scrollTo({left:i*sc.clientWidth,behavior:RM?"auto":"smooth"});hmIdx=i;hmMark(i);animateSlide(i);}
 function hmMark(i){$("#hmChips").querySelectorAll("button").forEach((b,k)=>b.setAttribute("aria-current",k===i));$("#hmDots").querySelectorAll("i").forEach((d,k)=>d.classList.toggle("on",k===i));const c=$("#hmChips").children[i];if(c)c.scrollIntoView({block:"nearest",inline:"nearest"});}
 
 /* ================= Tomas de inventario a ciegas ================= */
