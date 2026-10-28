@@ -6,8 +6,13 @@
 <meta name="theme-color" content="#1F4E8C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Ubicaciones CD">
-<title>Ubicaciones CD</title>
+<meta name="apple-mobile-web-app-title" content="Logística Yagan">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="Logística Yagan">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Logística Yagan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.1.3/dist/iife/ponyfill.min.js"></script>
@@ -213,7 +218,7 @@ select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
 
 <!-- ============ INGRESO ============ -->
 <section id="v-login" class="wrap login">
-  <div><span class="brand lg" role="img" aria-label="Yagan Depot"></span><div class="appname" style="font-size:1rem;margin-top:8px">Ubicaciones CD</div></div>
+  <div><span class="brand lg" role="img" aria-label="Yagan Depot"></span><div class="appname" style="font-size:1rem;margin-top:8px">Logística Yagan</div></div>
   <form class="card" id="loginForm" autocomplete="on">
     <div class="eyebrow" id="lgTitle">Ingreso</div>
     <div class="hint" id="lgHint">Cargando…</div>
@@ -230,7 +235,7 @@ select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
 <!-- ============ APP ============ -->
 <div id="app" hidden>
 <header><div class="wrap">
-  <div><span class="brand" role="img" aria-label="Yagan Depot"></span><div class="appname">Ubicaciones CD</div></div>
+  <div><span class="brand" role="img" aria-label="Yagan Depot"></span><div class="appname">Logística Yagan</div></div>
   <div class="who"><span class="nm" id="opName"></span>
     <button class="sm ghost iconbtn" id="btnRefresh" aria-label="Actualizar" title="Actualizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
     <button class="sm ghost" id="btnMenu">Cuenta</button></div>
@@ -573,6 +578,7 @@ function showTab(t,fromBack){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 const CLIENT_VERSION="20";let SERVER_VERSION=0;
 async function checkVersion(){
   try{QUIET.add("api_estado");const e=await call("api_estado");QUIET.delete("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
