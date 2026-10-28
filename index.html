@@ -552,7 +552,7 @@ function showTab(t){
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 $("#btnMenu").onclick=()=>accountSheet();
-const CLIENT_VERSION="18";
+const CLIENT_VERSION="19";
 async function checkVersion(){
   try{const e=await call("api_estado");
     $("#verBanner").innerHTML=e.version&&e.version!==CLIENT_VERSION?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.reload()">Cargar</button></div>`:"";
