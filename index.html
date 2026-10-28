@@ -817,7 +817,7 @@ function movSheet(it,bulk,unknown){
     const W=bindBox(sh,it,known,t=>{sh.querySelector("#fC").value=t;upd();});
     const upd=()=>{
       sh.querySelectorAll("#mT button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.t===tipo));
-      sh.querySelector("#mTh").textContent={Entrada:"Suma unidades a esta ubicación.",Salida:"Resta unidades de esta ubicación.",Conteo:"Fija la cantidad contada físicamente (inventario)."}[tipo];
+      sh.querySelector("#mTh").textContent={Entrada:"Suma unidades a esta ubicación. Con 0 queda asignado sin stock (Stock 0).",Salida:"Resta unidades de esta ubicación.",Conteo:"Fija la cantidad contada físicamente (inventario)."}[tipo];
       sh.querySelector("#fCl span").textContent=tipo==="Conteo"?"Cantidad contada (unidades)":"Cantidad (unidades)";
       const n=q(),res=sh.querySelector("#fRes");
       if(n==null||!ubic){res.textContent="";return;}
@@ -853,11 +853,14 @@ function movSheet(it,bulk,unknown){
       e.preventDefault();const n=q(),err=sh.querySelector("#fErr");err.textContent="";
       if(!ubic)return err.textContent="Escanea la ubicación donde está el producto.";
       if(n==null)return err.textContent="Escribe la cantidad.";
-      if(tipo!=="Conteo"&&!n)return err.textContent="La cantidad debe ser mayor a 0.";
+      /* Entrada con 0 = asignar el SKU a la ubicación sin stock (queda como Stock 0). */
+      const asignar=tipo==="Entrada"&&!n;
+      if(asignar&&hay>0)return err.textContent="Este SKU ya tiene stock en esta ubicación. Para dejarlo en 0 usa Conteo.";
+      if(tipo==="Salida"&&!n)return err.textContent="La cantidad debe ser mayor a 0.";
       sh.querySelectorAll("button").forEach(b=>b.disabled=true);
       try{
-        const r=await api("api_movimiento",{ubic,sku:it[0],code:code,desc:it[1],tipo,cant:n,detalle:W.detalle});
-        closeSheet();beep(true);toast(`${tipo} ${tipo==="Conteo"?"":tipo==="Entrada"?"+":"−"}${fmt(n)} · ${it[0]||code} en ${ubic} queda en ${Q(r.despues)} u.${r.cajas&&!CIEGO?" ("+cjRow({cant:r.despues,cajas:r.cajas},0)+")":""}`,3500);
+        const r=await api("api_movimiento",{ubic,sku:it[0],code:code,desc:it[1],tipo:asignar?"Conteo":tipo,cant:n,detalle:asignar?"":W.detalle});
+        closeSheet();beep(true);if(asignar){toast(`${it[0]||code} asignado a ${ubic} con stock 0`,3500);}else toast(`${tipo} ${tipo==="Conteo"?"":tipo==="Entrada"?"+":"−"}${fmt(n)} · ${it[0]||code} en ${ubic} queda en ${Q(r.despues)} u.${r.cajas&&!CIEGO?" ("+cjRow({cant:r.despues,cajas:r.cajas},0)+")":""}`,3500);
         if(ubic!==C.ubic){C={ubic,rows:[]};LS.set("ucd_ubic_"+S.correo,ubic);renderCapture();}
         loadLoc();if(next==="scan")$("#btnScanProd").click();
       }catch(x){err.textContent=errMsg(x);sh.querySelectorAll("button").forEach(b=>b.disabled=false);}
