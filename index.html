@@ -403,8 +403,9 @@ function toast(msg,ms){const t=document.createElement("div");t.className="toast"
 let busy=0;const load=on=>{busy+=on?1:-1;$("#loading").hidden=busy<=0;};
 /* Conexión con la planilla (Apps Script). Pega aquí el link /exec de la implementación. */
 const API_URL="https://script.google.com/macros/s/AKfycbxrgOuAOV_EerUpN_X5XlTQPjM_YYqL_UOeIYOIi4pH6V_RkGG4Vtx-EEUxDsJpAxo/exec";
+let QUIET=new Set();
 async function call(fn,...a){
-  load(true);
+  const quiet=QUIET.has(fn);if(!quiet)load(true);
   try{
     const r=await fetch(API_URL,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn,args:a})});
     if(!r.ok)throw new Error("No se pudo conectar con la planilla ("+r.status+").");
@@ -414,7 +415,7 @@ async function call(fn,...a){
   }catch(e){
     if(e instanceof TypeError)throw new Error("Sin conexión con la planilla. Revisa internet e intenta de nuevo.");
     throw e;
-  }finally{load(false);}
+  }finally{if(!quiet)load(false);}
 }
 async function api(fn,...a){
   try{return await call(fn,S.token,...a);}
@@ -475,19 +476,26 @@ $("#loginForm").onsubmit=async e=>{
     LS.set("ucd_lastEmail",u);startApp(sess);
   }catch(x){err.textContent=errMsg(x);$("#lgBtn").disabled=false;}
 };
-function logout(){S=null;LS.del("ucd_s");closeScanner();$("#sheetHost").replaceChildren();showLogin();}
+function logout(){S=null;HM=null;LS.del("ucd_s");closeScanner();$("#sheetHost").replaceChildren();showLogin();}
 
 /* ================= Maestro ================= */
 const M={items:[],byCode:new Map(),bySku:new Map()};
+function applyMaster(items){
+  M.items=items;M.byCode.clear();M.bySku.clear();
+  const codes=v=>String(v||"").split(/[,;|\s]+/).map(norm).filter(Boolean);
+  for(const it of items){M.bySku.set(norm(it[0]),it);codes(it[3]).forEach(c=>M.byCode.set(c,{it,bulk:true}));codes(it[2]).forEach(c=>M.byCode.set(c,{it,bulk:false}));}
+  $("#masterInfo").textContent=(items.length?`Maestro: ${fmt(items.length)} productos`:"Maestro de productos vacío")+` · ${fmt(L.items.length)} ubicaciones registradas.`;
+}
+/** Abre al instante con la copia guardada en el teléfono y la actualiza en segundo plano (sin pantalla de carga). */
 async function loadMaster(){
+  const cM=LS.get("ucd_cache_mae",null),cL=LS.get("ucd_cache_ubic",null),hay=!!(cM&&cL);
+  if(hay){setLocs(cL);applyMaster(cM);}
+  if(hay){QUIET.add("api_maestro");QUIET.add("api_maestroUbic");}
   try{
-    const items=await api("api_maestro");
-    M.items=items;M.byCode.clear();M.bySku.clear();
-    const codes=v=>String(v||"").split(/[,;|\s]+/).map(norm).filter(Boolean);
-    for(const it of items){M.bySku.set(norm(it[0]),it);codes(it[3]).forEach(c=>M.byCode.set(c,{it,bulk:true}));codes(it[2]).forEach(c=>M.byCode.set(c,{it,bulk:false}));}
-    await loadLocs();
-    $("#masterInfo").textContent=(items.length?`Maestro: ${fmt(items.length)} productos`:"Maestro de productos vacío")+` · ${fmt(L.items.length)} ubicaciones registradas.`;
-  }catch(e){$("#masterInfo").textContent="No se pudo cargar el maestro: "+errMsg(e);}
+    const [items,locs]=await Promise.all([api("api_maestro"),api("api_maestroUbic")]);
+    setLocs(locs);applyMaster(items);LS.set("ucd_cache_mae",items);LS.set("ucd_cache_ubic",locs);
+  }catch(e){if(!hay)$("#masterInfo").textContent="No se pudo cargar el maestro: "+errMsg(e);}
+  finally{QUIET.delete("api_maestro");QUIET.delete("api_maestroUbic");}
 }
 /* --- Maestro de ubicaciones --- */
 const L={items:[],byCode:new Map(),byName:new Map()};
@@ -495,7 +503,7 @@ function setLocs(items){
   L.items=items;L.byCode.clear();L.byName.clear();
   for(const l of items){const o={name:l[0],zona:l[2],desc:l[3],activa:l[4]};L.byName.set(norm(l[0]),o);L.byCode.set(norm(l[0]),o);String(l[1]||"").split(/[,;|\s]+/).map(norm).filter(Boolean).forEach(c=>L.byCode.set(c,o));}
 }
-async function loadLocs(){setLocs(await api("api_maestroUbic"));}
+async function loadLocs(){const l=await api("api_maestroUbic");setLocs(l);LS.set("ucd_cache_ubic",l);}
 const resolveLoc=code=>L.byCode.get(norm(code))||null;
 /** Devuelve el nombre de la ubicación; las etiquetas PK/BC se registran solas. null si hay que registrarla a mano. */
 async function ensureLoc(raw){
@@ -540,9 +548,21 @@ function startApp(sess){
   $("#opName").textContent=S.nombre;
   const adm=S.rol==="admin";$("#tabEquipo").hidden=!adm;$("#tabInv").hidden=false;$("#tabs").style.setProperty("--tabs",adm?6:5);
   document.querySelectorAll(".admin-only").forEach(x=>x.hidden=!adm);
-  loadMaster();checkVersion();loadTomaState();C.ubic=LS.get("ucd_ubic_"+S.correo,null);renderCapture();if(C.ubic)loadLoc();showTab("inicio");
+  armBack();loadMaster();checkVersion();loadTomaState();C.ubic=LS.get("ucd_ubic_"+S.correo,null);renderCapture();if(C.ubic)loadLoc();showTab("inicio");
 }
-function showTab(t){
+let TAB="inicio",TABPREV=null,backAt=0;
+/* Botón atrás del teléfono: cierra la ventana o la cámara, vuelve a la pestaña anterior y solo sale de la app con dos toques seguidos en Inicio. */
+function armBack(){try{history.pushState({ucd:1},"");}catch(e){}}
+window.addEventListener("popstate",()=>{
+  if(!S||$("#app").hidden)return;
+  if($("#sheetHost").children.length){closeSheet();armBack();return;}
+  if(!$("#scanOv").hidden){closeScanner();armBack();return;}
+  if(TAB!=="inicio"){showTab(TABPREV&&TABPREV!==TAB?TABPREV:"inicio",true);TABPREV=null;armBack();return;}
+  if(Date.now()-backAt<2500){history.back();return;}
+  backAt=Date.now();toast("Toca atrás otra vez para salir");armBack();
+});
+function showTab(t,fromBack){
+  if(!fromBack&&t!==TAB)TABPREV=TAB;TAB=t;
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===t));
   ["inicio","capturar","reponer","buscar","inventario","equipo"].forEach(x=>$("#v-"+x).hidden=x!==t);
   clearInterval(hmTimer);hmTimer=null;if(t==="inicio")loadInicio();
@@ -555,7 +575,7 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 const CLIENT_VERSION="20";let SERVER_VERSION=0;
 async function checkVersion(){
-  try{const e=await call("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
+  try{QUIET.add("api_estado");const e=await call("api_estado");QUIET.delete("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
     $("#verBanner").innerHTML=e.version&&(parseFloat(e.version)||0)>(parseFloat(CLIENT_VERSION)||0)?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.replace(location.pathname+'?v='+Date.now())">Cargar</button></div>`:"";
     $("#verBanner").hidden=!$("#verBanner").innerHTML;}catch(x){}
 }
@@ -1203,8 +1223,12 @@ $("#erpFile").onchange=async e=>{
 /* ================= Inicio: tablero deslizable ================= */
 let HM=null,hmIdx=0,hmTimer=null,hmAuto=null,hmPaused=0,hmRank="hoy";
 async function loadInicio(quiet){
-  try{HM=await api("api_inicio");renderInicio();}
-  catch(e){if(!quiet)$("#hmSlides").innerHTML=`<div class="slide"><div class="card"><div class="empty">${esc(errMsg(e))}</div></div></div>`;}
+  const ck="ucd_cache_ini_"+(S&&S.correo);
+  if(!HM){const c=LS.get(ck,null);if(c){HM=c;try{renderInicio();}catch(e){}}}
+  const q=quiet||!!HM;if(q)QUIET.add("api_inicio");
+  try{HM=await api("api_inicio");LS.set(ck,HM);renderInicio();}
+  catch(e){if(!q)$("#hmSlides").innerHTML=`<div class="slide"><div class="card"><div class="empty">${esc(errMsg(e))}</div></div></div>`;}
+  finally{if(q)QUIET.delete("api_inicio");}
   clearInterval(hmTimer);hmTimer=setInterval(()=>{if(!document.hidden&&currentTab()==="inicio")loadInicio(true);},120000);
 }
 const RM=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1319,11 +1343,12 @@ function showInvMode(m){
 }
 $("#invMode").onclick=e=>{const b=e.target.closest("button");if(b)showInvMode(b.dataset.m);};
 async function loadTomaState(){
-  try{const r=await api("api_tomas");TOMA=r;const ab=r.abiertas||[];CIEGO=ab.length>0&&S.rol!=="admin";
+  QUIET.add("api_tomas");
+  try{const r=await api("api_tomas");QUIET.delete("api_tomas");TOMA=r;const ab=r.abiertas||[];CIEGO=ab.length>0&&S.rol!=="admin";
     $("#blindBar").hidden=!ab.length;
     $("#blindBar").textContent=!ab.length?"":CIEGO?(ab.length===1?`Toma a ciegas en curso: ${ab[0].nombre}. Las cantidades del sistema están ocultas.`:`Tienes ${ab.length} tomas a ciegas en curso. Las cantidades del sistema están ocultas.`)
       :`${ab.length} toma(s) a ciegas abierta(s). Los operadores asignados no ven cantidades.`;
-  }catch(e){}
+  }catch(e){QUIET.delete("api_tomas");}
 }
 async function loadToma(){
   await loadTomaState();
