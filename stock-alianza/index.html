@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stock Bodegas Alianza</title>
-<meta http-equiv="refresh" content="0; url=https://bodega-yagan.github.io/stock-alianza/">
 <style>body{font-family:Arial,sans-serif;background:#fff;color:#072c5f;text-align:center;padding:60px 20px}a{color:#1a5b9e}</style>
 </head><body>
 <p>La app <b>Stock Bodegas Alianza</b> se cambió de dirección.</p>
 <p><a href="https://bodega-yagan.github.io/stock-alianza/">Abrir la app en su nueva dirección</a></p>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>{if(r.scope.indexOf('/ubicaciones-cd/stock-alianza/')>=0)r.unregister();}));
-location.replace('https://bodega-yagan.github.io/stock-alianza/');</script>
+// Si se abre dentro de una app instalada (ventana sin barra), es la app Yagan con un link antiguo: volver a Yagan
+var enApp=matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: window-controls-overlay)').matches||navigator.standalone;
+location.replace(enApp?'https://bodega-yagan.github.io/ubicaciones-cd/':'https://bodega-yagan.github.io/stock-alianza/');</script>
 </body></html>
