@@ -215,15 +215,17 @@ select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
 @media (min-width:1024px){
   .wrap{max-width:1240px}
   header .wrap,nav .wrap{max-width:1240px}
-  #v-inicio .slides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;scroll-snap-type:none;align-items:start}
-  #v-inicio .slide{flex:none}
+  #v-inicio .slides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:4px;column-gap:18px;row-gap:0;overflow:visible;scroll-snap-type:none;align-items:start}
+  #v-inicio .slide{flex:none;padding-bottom:18px}
+  #v-inicio .slide-t{display:block}
   #v-inicio .dots{display:none}
   .view:not(#v-inicio){max-width:980px;width:100%;margin-inline:auto}
   .sheet-bg{align-items:center!important}
   .sheet{border-radius:16px!important;max-height:90vh;overflow:auto}
   nav button{font-size:.75rem}
 }
-@media (min-width:1500px){#v-inicio .slides{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1600px){#v-inicio .slides{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.slide-t{display:none;font:700 1.15rem/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:2px 0 -2px}
 </style>
 </head>
 <body>
@@ -1333,12 +1335,12 @@ function renderInicio(){
       <div class="card"><div class="eyebrow">Últimos movimientos</div><div class="rows">${(H.ultimos||[]).map(m=>`<div class="row"><div class="grow"><div class="t">${esc(m.tipo)} · <span class="mono">${esc(m.sku)}</span></div><div class="s">${esc(m.ubic)} · ${esc(m.op)} · ${fmtDate(m.ts)}</div></div><span class="qty">${fmt(m.cant)}</span></div>`).join("")||`<div class="empty">Sin movimientos.</div>`}</div></div>`});
   }
   // pintar
-  $("#hmSlides").innerHTML=slides.map(x=>`<div class="slide">${x.html}</div>`).join("");
+  $("#hmSlides").innerHTML=slides.map(x=>`<div class="slide"><div class="slide-t">${x.t}</div>${x.html}</div>`).join("");
   $("#hmChips").innerHTML=slides.map((x,i)=>`<button type="button" data-i="${i}">${x.t}${x.n?`<span class="cnt">${x.n}</span>`:""}</button>`).join("");
   $("#hmDots").innerHTML=slides.map(()=>"<i></i>").join("");
   if(hmIdx>=slides.length)hmIdx=0;
   const sc=$("#hmSlides");sc.style.scrollBehavior="auto";sc.scrollLeft=hmIdx*sc.clientWidth;sc.style.scrollBehavior="";
-  hmMark(hmIdx);animateSlide(hmIdx);if(DESK())slides.forEach((_,i)=>animateSlide(i));
+  hmMark(hmIdx);animateSlide(hmIdx);if(DESK())slides.forEach((_,i)=>animateSlide(i));deskLayout();
   // eventos
   $("#hmChips").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{hmPaused=Date.now();hmGo(+b.dataset.i);});
   sc.onscroll=()=>{const i=Math.round(sc.scrollLeft/Math.max(1,sc.clientWidth));if(i!==hmIdx){hmIdx=i;hmMark(i);animateSlide(i);}};
@@ -1355,6 +1357,15 @@ function renderInicio(){
   clearInterval(hmAuto);if(!RM)hmAuto=setInterval(()=>{if(DESK()||currentTab()!=="inicio"||document.hidden||Date.now()-hmPaused<45000||$("#sheetHost").children.length)return;hmGo((hmIdx+1)%slides.length);},9000);
 }
 const DESK=()=>matchMedia("(min-width:1024px)").matches;
+/* Computador: acomoda las secciones de Inicio como mosaico (cada una ocupa solo su alto, sin huecos grandes). */
+let deskRO=null;
+function deskLayout(){
+  const sc=$("#hmSlides");if(!sc)return;const items=[...sc.children];
+  if(!DESK()){items.forEach(el=>el.style.gridRowEnd="");return;}
+  const fit=()=>items.forEach(el=>{el.style.gridRowEnd="span "+Math.ceil(el.scrollHeight/4);});
+  fit();if(window.ResizeObserver){if(deskRO)deskRO.disconnect();deskRO=new ResizeObserver(()=>requestAnimationFrame(fit));items.forEach(el=>deskRO.observe(el));}
+}
+window.addEventListener("resize",()=>{clearTimeout(window._dl);window._dl=setTimeout(deskLayout,150);});
 function hmGo(i){if(DESK()){const el=$("#hmSlides").children[i];if(el)el.scrollIntoView({behavior:RM?"auto":"smooth",block:"start"});hmIdx=i;hmMark(i);return;}const sc=$("#hmSlides");sc.scrollTo({left:i*sc.clientWidth,behavior:RM?"auto":"smooth"});hmIdx=i;hmMark(i);animateSlide(i);}
 function hmMark(i){$("#hmChips").querySelectorAll("button").forEach((b,k)=>b.setAttribute("aria-current",k===i));$("#hmDots").querySelectorAll("i").forEach((d,k)=>d.classList.toggle("on",k===i));const c=$("#hmChips").children[i];if(c)c.scrollIntoView({block:"nearest",inline:"nearest"});}
 
