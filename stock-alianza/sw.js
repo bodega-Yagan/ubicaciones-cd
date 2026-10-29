@@ -1,7 +1,7 @@
 /* Stock Bodegas Alianza: permite instalar la app. La página siempre se pide primero a internet
    (así las actualizaciones llegan al tiro); la copia guardada solo se usa si no hay conexión.
    Las consultas a la planilla (Apps Script) nunca pasan por aquí. */
-const CACHE = 'stock-alianza-v1';
+const CACHE = 'stock-alianza-v2';
 const BASE = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
