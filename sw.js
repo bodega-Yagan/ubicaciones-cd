@@ -1,7 +1,7 @@
 /* Logística Yagan: permite instalar la app. La página siempre se pide primero a internet
    (así las actualizaciones llegan al tiro); la copia guardada solo se usa si no hay conexión.
    Las consultas a la planilla (Apps Script) nunca pasan por aquí. */
-const CACHE = 'logistica-yagan-v4';
+const CACHE = 'logistica-yagan-v5';
 const BASE = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE)).catch(() => {})); });
 self.addEventListener('activate', e => e.waitUntil(

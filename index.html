@@ -213,8 +213,12 @@ select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* Computador: aprovecha el ancho de la pantalla */
 @media (min-width:1024px){
-  .wrap{max-width:1240px}
-  header .wrap,nav .wrap{max-width:1240px}
+  .wrap{max-width:min(1640px,96vw)}
+  header .wrap,nav .wrap{max-width:min(1640px,96vw)}
+  /* listas largas con su propio desplazamiento, para que todo el tablero quepa en pantalla */
+  #v-inicio .card .rows,#v-inicio .dlist{max-height:330px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:4px}
+  #v-inicio .slides{column-gap:14px}
+  #v-inicio .slide{gap:10px;padding-bottom:14px}
   #v-inicio .slides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:4px;column-gap:18px;row-gap:0;overflow:visible;scroll-snap-type:none;align-items:start}
   #v-inicio .slide{flex:none;padding-bottom:18px}
   #v-inicio .slide-t{display:block}
@@ -224,7 +228,8 @@ select.mapsel{height:42px;font-size:.95rem;padding:6px 10px}
   .sheet{border-radius:16px!important;max-height:90vh;overflow:auto}
   nav button{font-size:.75rem}
 }
-@media (min-width:1600px){#v-inicio .slides{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1280px){#v-inicio .slides{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media (min-width:1800px){#v-inicio .slides{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
 .slide-t{display:none;font:700 1.15rem/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:2px 0 -2px}
 </style>
 </head>
@@ -1315,8 +1320,8 @@ function renderInicio(){
     <div class="zcards"><div class="zcard pk fadein"><span>PICKING · PK</span>${NQ(pk.unidades)}<span>unidades</span><span>${ubTxt(pk.ubicaciones,Math.max(pk.ubicaciones,regZ.Picking||0))} · ${pk.skus} productos</span></div>
       <div class="zcard bc fadein"><span>RACKS · BC</span>${NQ(bc.unidades)}<span>unidades</span><span>${ubTxt(bc.ubicaciones,Math.max(bc.ubicaciones,regZ.Racks||0))} · ${bc.skus} productos</span></div></div>
     <div class="card"><div class="eyebrow">Unidades por pasillo</div>
-      ${pas.length?pas.map(p=>`<button type="button" data-aisle="${esc(p.pasillo)}" style="background:none;height:auto;padding:6px 0;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;font-weight:400;color:var(--ink)"><div class="meta" style="justify-content:space-between"><span><b class="mono">${esc(p.pasillo)}</b> · ${p.zona}</span><span class="hint">${Q(p.unidades)} u. · ${p.total} ubic.${p.total>p.ubicaciones?` (${p.ubicaciones} con stock)`:""}</span></div><div class="bar2"><i class="${p.zona==="Picking"?"pk":p.zona==="Racks"?"bc":"ot"}" data-w="${CIEGO?100:Math.max(3,Math.round(p.unidades/maxP*100))}%"></i></div></button>`).join(""):`<div class="empty">Aún no hay stock registrado en ubicaciones.</div>`}
-      <div class="hint">Toca un pasillo para ver qué hay en cada ubicación.</div></div>`});
+      <div class="dlist">${pas.length?pas.map(p=>`<button type="button" data-aisle="${esc(p.pasillo)}" style="background:none;height:auto;padding:6px 0;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;font-weight:400;color:var(--ink)"><div class="meta" style="justify-content:space-between"><span><b class="mono">${esc(p.pasillo)}</b> · ${p.zona}</span><span class="hint">${Q(p.unidades)} u. · ${p.total} ubic.${p.total>p.ubicaciones?` (${p.ubicaciones} con stock)`:""}</span></div><div class="bar2"><i class="${p.zona==="Picking"?"pk":p.zona==="Racks"?"bc":"ot"}" data-w="${CIEGO?100:Math.max(3,Math.round(p.unidades/maxP*100))}%"></i></div></button>`).join(""):`<div class="empty">Aún no hay stock registrado en ubicaciones.</div>`}
+      </div><div class="hint">Toca un pasillo para ver qué hay en cada ubicación.</div></div>`});
   // 4. Ranking
   const R=H.ranking[hmRank],p3=R.slice(0,3),maxR=Math.max(1,...R.map(r=>r.lineas));
   const pod=i=>p3[i]?`<div class="p${i+1}"><span class="medal">${["🥇","🥈","🥉"][i]}</span><span class="nm">${esc(p3[i].nombre.split(" ")[0])}</span><span><b data-count="${p3[i].lineas}">0</b> mov.</span></div>`:`<div class="p${i+1}" style="opacity:.25"></div>`;
