@@ -8,10 +8,6 @@ App del centro de distribución para registrar ubicaciones, stock, reposiciones 
 
 Para actualizar la pantalla, reemplaza `index.html` y se publica sola en 1–2 minutos.
 
-## Stock Bodegas Alianza (`/stock-alianza/`)
+## Stock Bodegas Alianza
 
-App de stock, traspasos e inventarios entre Alianza Central, A. C. Tránsito y A. C. Almacenamiento.
-
-- **App publicada:** https://bodega-yagan.github.io/ubicaciones-cd/stock-alianza/
-- **Pantalla:** `stock-alianza/index.html` (app instalable con su propio `manifest.json` y `sw.js`).
-- **Datos:** planilla "Stock_Interbodgegas_Alianza" + `Codigo.gs` en Apps Script (función `doPost`; implementación: Ejecutar como *Yo*, acceso *Cualquier persona*).
+Se movió a su propio repositorio: https://github.com/bodega-Yagan/stock-alianza (app: https://bodega-yagan.github.io/stock-alianza/). La carpeta `stock-alianza/` solo redirige a la nueva dirección.

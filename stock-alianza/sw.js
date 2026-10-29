@@ -1,22 +1,5 @@
-/* Stock Bodegas Alianza: permite instalar la app. La página siempre se pide primero a internet
-   (así las actualizaciones llegan al tiro); la copia guardada solo se usa si no hay conexión.
-   Las consultas a la planilla (Apps Script) nunca pasan por aquí. */
-const CACHE = 'stock-alianza-v2';
-const BASE = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
-self.addEventListener('install', e => {
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => Promise.all(BASE.map(u =>
-    fetch(u, { cache: 'reload' }).then(r => r.ok && c.put(u, r)).catch(() => {})))));
-});
+/* La app de Alianza se movió a https://bodega-yagan.github.io/stock-alianza/ . Este service worker se borra solo. */
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(
-  caches.keys().then(ks => Promise.all(ks.filter(k => k.indexOf('stock-alianza') === 0 && k !== CACHE).map(k => caches.delete(k))))
-    .then(() => self.clients.claim())));
-self.addEventListener('fetch', e => {
-  const r = e.request, u = new URL(r.url);
-  if (r.method !== 'GET' || u.origin !== location.origin) return;
-  const nav = r.mode === 'navigate', key = nav ? './index.html' : r;
-  e.respondWith(fetch(r.url, { cache: 'no-store', credentials: 'same-origin' }).then(res => {
-    if (res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(key, cp)); }
-    return res;
-  }).catch(() => caches.match(key).then(m => m || caches.match('./'))));
-});
+  caches.keys().then(ks => Promise.all(ks.filter(k => k.indexOf('stock-alianza') === 0).map(k => caches.delete(k))))
+    .then(() => self.registration.unregister())));
