@@ -600,14 +600,14 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 /* Si en internet hay una versión más nueva de la página que la que se está mostrando, recargar una vez con la nueva. */
-const BUILD="2026-10-29a";
+const BUILD="2026-10-31a";
 async function selfUpdate(){
   try{const t=await (await fetch("index.html?b="+Date.now(),{cache:"no-store"})).text();const m=t.match(/const BUILD="([^"]+)"/);
     if(m&&m[1]!==BUILD){const k="ucd_upd_"+m[1];if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");location.replace(location.pathname+"?v="+Date.now());}}catch(e){}
 }
 window.addEventListener("load",()=>setTimeout(selfUpdate,1500));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)selfUpdate();});
-const CLIENT_VERSION="20";let SERVER_VERSION=0;
+const CLIENT_VERSION="21";let SERVER_VERSION=0;
 async function checkVersion(){
   try{QUIET.add("api_estado");const e=await call("api_estado");QUIET.delete("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
     $("#verBanner").innerHTML=e.version&&(parseFloat(e.version)||0)>(parseFloat(CLIENT_VERSION)||0)?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.replace(location.pathname+'?v='+Date.now())">Cargar</button></div>`:"";
@@ -1059,6 +1059,16 @@ async function showUbic(code,rows){
   $("#result").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>quitarSheet(rows[+b.dataset.rm]));
   $("#btnCapHere").onclick=()=>{showTab("capturar");openLocation(code);};
 }
+function uxSheet(sku,desc){
+  sheet(`<h2>Unidades por caja</h2><div><span class="mono" style="font-weight:600">${esc(sku)}</span><div class="s">${esc(desc||"")}</div></div>
+    <label class="f">¿Cuántas unidades trae una caja maestra?<input id="uxN" type="number" inputmode="numeric" min="1" required></label><div class="err" id="uxE"></div>
+    <div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Guardar</button></div>`,
+  sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;setTimeout(()=>sh.querySelector("#uxN").focus(),80);
+    sh.onsubmit=async e=>{e.preventDefault();const n=parseInt(sh.querySelector("#uxN").value,10);if(!(n>0))return sh.querySelector("#uxE").textContent="Escribe un número mayor a 0.";
+      sh.querySelectorAll("button").forEach(b=>b.disabled=true);
+      try{await api("api_setUnidadesCaja",sku,n);const m=M.bySku.get(norm(sku));if(m)m[4]=n;closeSheet();toast(`${sku}: 1 caja = ${n} u.`);loadInicio(true);}
+      catch(x){sh.querySelector("#uxE").textContent=errMsg(x);sh.querySelectorAll("button").forEach(b=>b.disabled=false);}};});
+}
 function quitarSheet(r){
   if(SERVER_VERSION&&SERVER_VERSION<20)return toast("Para quitar un SKU, el administrador debe actualizar Apps Script a la versión 20.",4500);
   const it=resolve(r.sku||r.code),d=it?it.it[1]:r.desc||"";
@@ -1303,8 +1313,8 @@ function renderInicio(){
     <div class="tiles">
       <button type="button" class="alert ${cls(A.reponer.total)}" data-jump="rep"><span class="hint">Reponer picking</span>${N(A.reponer.total)}<span class="hint">productos con poco stock en PK y stock en BC</span></button>
       <button type="button" class="alert ${A.sinUbic.total?"warm":"ok"}" data-jump="sin"><span class="hint">Sin ubicación</span>${N(A.sinUbic.total)}<span class="hint">${A.erpCargado?"con stock en ERP y sin ubicación en la app":"sube el stock ERP para calcularlo"}</span></button>
-      <button type="button" class="alert ${A.sinCodigo?"warm":"ok"}" data-go="buscar"><span class="hint">Códigos sin asociar</span>${N(A.sinCodigo)}<span class="hint">guardados sin producto</span></button>
-      <button type="button" class="alert ${A.sinUx?"warm":"ok"}" data-go="capturar"><span class="hint">Sin unid. por caja</span>${N(A.sinUx)}<span class="hint">productos con caja maestra sin cantidad</span></button>
+      <button type="button" class="alert ${A.sinCodigo?"warm":"ok"}" data-jump="cod"><span class="hint">Códigos sin asociar</span>${N(A.sinCodigo)}<span class="hint">guardados sin producto</span></button>
+      <button type="button" class="alert ${A.sinUx?"warm":"ok"}" data-jump="ux"><span class="hint">Sin unid. por caja</span>${N(A.sinUx)}<span class="hint">productos con caja maestra sin cantidad</span></button>
     </div>
     <div class="card" id="hmRep"><div class="eyebrow">Sugerencias de reposición · BC → PK</div>
       <div class="rows">${A.reponer.lista.length?A.reponer.lista.map(r=>`<button type="button" class="row" data-repo="${esc(r.sku)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%;align-items:flex-start"><div class="grow"><div class="t mono">${esc(r.sku)}</div><div class="s">${esc(r.desc)}</div>
@@ -1314,7 +1324,13 @@ function renderInicio(){
       <div class="hint">Poco stock = el picking tiene una caja maestra o menos (5 u. si no se conoce la caja).</div></div>
     <div class="card" id="hmSin"><div class="eyebrow">Productos sin ubicación</div>
       <div class="rows">${A.sinUbic.lista.length?A.sinUbic.lista.map(r=>`<button type="button" class="row" data-find="${esc(r.sku)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.sku)}</div><div class="s">${esc(r.desc)}</div></div><span class="qty">${Q(r.erp)}</span></button>`).join(""):`<div class="empty">${A.erpCargado?"Todo lo que tiene stock en el ERP tiene ubicación. ✓":"Sube el stock del ERP para ver esta alerta."}</div>`}</div>
-      ${A.sinUbic.total>A.sinUbic.lista.length?`<div class="hint">Se muestran ${A.sinUbic.lista.length} de ${A.sinUbic.total}, los de mayor stock ERP.</div>`:""}</div>`});
+      ${A.sinUbic.total>A.sinUbic.lista.length?`<div class="hint">Se muestran ${A.sinUbic.lista.length} de ${A.sinUbic.total}, los de mayor stock ERP.</div>`:""}</div>
+    <div class="card" id="hmCod"><div class="eyebrow">Códigos sin asociar</div>
+      ${!A.sinCodigoLista&&A.sinCodigo?`<div class="hint">Para ver el detalle, el administrador debe actualizar Apps Script a la versión 21.</div>`:`<div class="rows">${(A.sinCodigoLista||[]).length?A.sinCodigoLista.map(r=>`<button type="button" class="row" data-cod="${esc(r.code)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.code)}</div><div class="s">En ${r.ubics.map(esc).join(", ")} · toca para asociarlo a un producto</div></div><span class="qty">${Q(r.cant)}</span></button>`).join(""):`<div class="empty">Todos los códigos guardados tienen producto. ✓</div>`}</div>`}
+      ${A.sinCodigoLista&&A.sinCodigo>A.sinCodigoLista.length?`<div class="hint">Se muestran ${A.sinCodigoLista.length} de ${A.sinCodigo}.</div>`:""}</div>
+    <div class="card" id="hmUx"><div class="eyebrow">Sin unidades por caja</div>
+      ${!A.sinUxLista&&A.sinUx?`<div class="hint">Para ver el detalle, el administrador debe actualizar Apps Script a la versión 21.</div>`:`<div class="rows">${(A.sinUxLista||[]).length?A.sinUxLista.map(r=>`<button type="button" class="row" data-ux="${esc(r.sku)}" data-uxd="${esc(r.desc)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%"><div class="grow"><div class="t mono">${esc(r.sku)}</div><div class="s">${esc(r.desc)}${r.caja?` · caja <span class="mono">${esc(r.caja)}</span>`:""} · toca para indicar cuántas unidades trae</div></div><span class="qty">${Q(r.stock)}</span></button>`).join(""):`<div class="empty">Todas las cajas maestras tienen su cantidad. ✓</div>`}</div>`}
+      ${A.sinUxLista&&A.sinUx>A.sinUxLista.length?`<div class="hint">Se muestran ${A.sinUxLista.length} de ${A.sinUx}, los de más stock.</div>`:""}</div>`});
   // 3. Zonas
   const z=k=>H.zonas.find(x=>x.zona===k)||{unidades:0,ubicaciones:0,skus:0},pk=z("Picking"),bc=z("Racks");
   /* Total de ubicaciones registradas (incluye las vacías y en Stock 0) además de las que tienen stock. */
@@ -1359,7 +1375,9 @@ function renderInicio(){
   sc.onscroll=()=>{const i=Math.round(sc.scrollLeft/Math.max(1,sc.clientWidth));if(i!==hmIdx){hmIdx=i;hmMark(i);animateSlide(i);}};
   sc.onpointerdown=sc.ontouchstart=()=>{hmPaused=Date.now();};
   sc.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>showTab(b.dataset.go));
-  sc.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>{const el=$(b.dataset.jump==="rep"?"#hmRep":"#hmSin");if(el)el.scrollIntoView({behavior:"smooth",block:"start"});});
+  sc.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>{const el=$({rep:"#hmRep",sin:"#hmSin",cod:"#hmCod",ux:"#hmUx"}[b.dataset.jump]);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});});
+  sc.querySelectorAll("[data-cod]").forEach(b=>b.onclick=()=>linkSheet(b.dataset.cod,()=>{toast("Código asociado");loadMaster();loadInicio(true);},null,false));
+  sc.querySelectorAll("[data-ux]").forEach(b=>b.onclick=()=>uxSheet(b.dataset.ux,b.dataset.uxd));
   sc.querySelectorAll("[data-repo]").forEach(b=>b.onclick=()=>{rpFrom="BC";$("#rpDir").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.d==="BC"));showTab("reponer");repoStart(b.dataset.repo);});
   sc.querySelectorAll("[data-find]").forEach(b=>b.onclick=()=>{showTab("buscar");search(b.dataset.find);});
   sc.querySelectorAll("[data-aisle]").forEach(b=>b.onclick=()=>{showTab("buscar");search(b.dataset.aisle);});
