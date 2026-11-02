@@ -600,7 +600,7 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 /* Si en internet hay una versión más nueva de la página que la que se está mostrando, recargar una vez con la nueva. */
-const BUILD="2026-11-02d";
+const BUILD="2026-11-02e";
 async function selfUpdate(){
   try{const t=await (await fetch("index.html?b="+Date.now(),{cache:"no-store"})).text();const m=t.match(/const BUILD="([^"]+)"/);
     if(m&&m[1]!==BUILD){const k="ucd_upd_"+m[1];if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");location.replace(location.pathname+"?v="+Date.now());}}catch(e){}
@@ -1098,7 +1098,7 @@ function vaciarSheet(code,zeros,todo){
 async function showAisle(p){
   cur={type:"a",code:p};
   /* "Otras" = ubicaciones que no empiezan con PK ni BC (ej. ECB01, ECC05): se juntan por sus prefijos. */
-  const otras=p==="OTRAS",pref=otras?[...new Set(L.items.map(l=>norm(l[0])).filter(u=>!/^(PK|BC|EC)/.test(u)&&u.length>=3).map(u=>u.slice(0,3)))]:[p];
+  const otras=p==="OTRAS",pref=otras?[...new Set(L.items.map(l=>norm(l[0])).filter(u=>!/^(PK|BC|EC)/.test(u)&&u.length>=3).map(u=>u.slice(0,3)))]:[p].concat(/^PK[BC]$/.test(p)?["EC"+p[2]]:/^EC[BC]$/.test(p)?["PK"+p[2]]:[]);
   const rows=(await Promise.all(pref.map(x=>api("api_pasillo",x)))).flat(),by={};
   rows.forEach(r=>{(by[r.ubic]=by[r.ubic]||[]).push(r);});
   L.items.filter(l=>pref.some(x=>norm(l[0]).indexOf(x)===0)).forEach(l=>{by[l[0]]=by[l[0]]||[];});
@@ -1341,7 +1341,8 @@ function renderInicio(){
   const pas=H.pasillos.map(p=>({...p,total:Math.max(p.ubicaciones,regA[p.pasillo]||0)}));
   Object.keys(regA).forEach(a=>{if(!pas.some(p=>p.pasillo===a))pas.push({pasillo:a,zona:zoneOf(a)||"Otras",unidades:0,ubicaciones:0,total:regA[a]});});
   pas.forEach(p=>{if(p.pasillo!=="Otras"&&!zoneOf(p.pasillo))p.zona="Zona "+p.pasillo.slice(0,2);});
-  pas.sort((a,b)=>a.pasillo.localeCompare(b.pasillo));
+  /* ECB va donde iría PKB y ECC donde iría PKC (son esos pasillos de picking), pero se muestran como ECB y ECC. */
+  const ordP=x=>x.replace(/^EC([BC])/,"PK$1");pas.sort((a,b)=>ordP(a.pasillo).localeCompare(ordP(b.pasillo)));
   const ubTxt=(con,tot)=>tot>con?`${tot} ubicaciones · ${con} con stock`:`${tot} ubicaciones`;
   const maxP=Math.max(1,...pas.map(p=>p.unidades));
   slides.push({t:"Zonas",html:`
