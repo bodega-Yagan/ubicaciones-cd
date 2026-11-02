@@ -600,7 +600,7 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 /* Si en internet hay una versión más nueva de la página que la que se está mostrando, recargar una vez con la nueva. */
-const BUILD="2026-10-31a";
+const BUILD="2026-11-02a";
 async function selfUpdate(){
   try{const t=await (await fetch("index.html?b="+Date.now(),{cache:"no-store"})).text();const m=t.match(/const BUILD="([^"]+)"/);
     if(m&&m[1]!==BUILD){const k="ucd_upd_"+m[1];if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");location.replace(location.pathname+"?v="+Date.now());}}catch(e){}
@@ -1000,7 +1000,8 @@ async function search(raw){
   const r=resolve(q);
   try{
     if(r)return showProduct(r.it,r.bulk);
-    if(/^(PK|BC)[A-Z]$/.test(q))return showAisle(q);
+    if(/^(PK|BC)[A-Z]$/.test(q)||(/^[A-Z]{3}$/.test(q)&&L.items.some(l=>norm(l[0]).indexOf(q)===0&&norm(l[0]).length>3)))return showAisle(q);
+    if(q==="OTRAS")return showAisle(q);
     const lo=resolveLoc(q);if(lo)return showUbic(lo.name);
     const inUbic=await api("api_ubicacion",q);
     if(inUbic.length||isLocCode(q))return showUbic(q,inUbic);
@@ -1096,9 +1097,11 @@ function vaciarSheet(code,zeros,todo){
 }
 async function showAisle(p){
   cur={type:"a",code:p};
-  const rows=await api("api_pasillo",p),by={};
+  /* "Otras" = ubicaciones que no empiezan con PK ni BC (ej. ECB01, ECC05): se juntan por sus prefijos. */
+  const otras=p==="OTRAS",pref=otras?[...new Set(L.items.map(l=>norm(l[0])).filter(u=>!/^(PK|BC)/.test(u)&&u.length>=3).map(u=>u.slice(0,3)))]:[p];
+  const rows=(await Promise.all(pref.map(x=>api("api_pasillo",x)))).flat(),by={};
   rows.forEach(r=>{(by[r.ubic]=by[r.ubic]||[]).push(r);});
-  L.items.filter(l=>norm(l[0]).indexOf(p)===0).forEach(l=>{by[l[0]]=by[l[0]]||[];});
+  L.items.filter(l=>pref.some(x=>norm(l[0]).indexOf(x)===0)).forEach(l=>{by[l[0]]=by[l[0]]||[];});
   const keys=Object.keys(by).sort(),tot=rows.reduce((s,r)=>s+r.cant,0);
   /* Estado de cada ubicación: con stock, stock cero (tiene SKU pero 0 u.) o vacía (sin SKU asignado). */
   const est=k=>!by[k].length?"vacia":by[k].some(r=>r.cant>0)?"stock":"cero";
@@ -1106,7 +1109,7 @@ async function showAisle(p){
   const tag=(t,c)=>`<span style="display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:${c}22;color:${c};margin-left:6px">${t}</span>`;
   const line=r=>{const it=resolve(r.sku||r.code),d=it?it.it[1]:r.desc;
     return `<div style="display:flex;gap:10px;justify-content:space-between;align-items:baseline;padding:3px 0"><div style="min-width:0"><span class="mono" style="font-weight:600">${esc(r.sku||r.code)}</span>${d?`<div class="s" style="overflow-wrap:anywhere">${esc(d)}</div>`:""}</div><b class="mono" style="white-space:nowrap${r.cant>0?"":";color:var(--bad)"}">${r.cant>0?Q(r.cant):"Stock 0"}</b></div>`;};
-  $("#result").innerHTML=`<div class="card"><div class="eyebrow">Pasillo ${esc(p)} · ${zoneOf(p)}</div>
+  $("#result").innerHTML=`<div class="card"><div class="eyebrow">${otras?`Otras ubicaciones (${pref.map(esc).join(", ")})`:`Pasillo ${esc(p)} · ${zoneOf(p)||"Otras"}`}</div>
     <div class="hint">${keys.length} ubicaciones · ${Q(tot)} u. · ${n.stock} con stock · ${n.cero} en stock 0 · ${n.vacia} vacía${n.vacia===1?"":"s"}</div>
     <div class="rows">${keys.length?keys.map(k=>{const e=est(k);
       return `<button type="button" class="row" data-u="${esc(k)}" style="background:none;height:auto;border-radius:0;justify-content:flex-start;text-align:left;padding:10px 0;width:100%;align-items:flex-start"><div class="grow" style="min-width:0">${locHTML(k)}${e==="vacia"?tag("Vacía","#64748b"):e==="cero"?tag("Stock 0","#c2410c"):""}<div style="margin-top:4px">${by[k].slice().sort((a,b)=>b.cant-a.cant).map(line).join("")}</div></div></button>`;}).join(""):`<div class="empty">Sin ubicaciones registradas en este pasillo.</div>`}</div></div>`;
@@ -1380,7 +1383,7 @@ function renderInicio(){
   sc.querySelectorAll("[data-ux]").forEach(b=>b.onclick=()=>uxSheet(b.dataset.ux,b.dataset.uxd));
   sc.querySelectorAll("[data-repo]").forEach(b=>b.onclick=()=>{rpFrom="BC";$("#rpDir").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.d==="BC"));showTab("reponer");repoStart(b.dataset.repo);});
   sc.querySelectorAll("[data-find]").forEach(b=>b.onclick=()=>{showTab("buscar");search(b.dataset.find);});
-  sc.querySelectorAll("[data-aisle]").forEach(b=>b.onclick=()=>{showTab("buscar");search(b.dataset.aisle);});
+  sc.querySelectorAll("[data-aisle]").forEach(b=>b.onclick=()=>{showTab("buscar");const a=b.dataset.aisle;if(a==="Otras"){$("#q").value="";showAisle("OTRAS").catch(e=>toast(errMsg(e)));}else search(a);});
   const rk=$("#hmRk");if(rk)rk.onclick=e=>{const b=e.target.closest("button");if(!b)return;hmRank=b.dataset.r;const keep=hmIdx;renderInicio();hmIdx=keep;};
   const av=$("#hmAviso");if(av)av.onclick=()=>sheet(`<h2>Aviso para el equipo</h2><div class="hint">Aparece arriba en el Inicio de todos. Déjalo vacío para quitarlo.</div><label class="f">Texto<textarea id="avT" rows="3" maxlength="400" style="font:500 1rem var(--f-body);padding:10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)">${esc(H.aviso?H.aviso.texto:"")}</textarea></label><div class="actions"><button type="button" class="ghost" data-x="no">Cancelar</button><button type="submit" class="primary">Publicar</button></div>`,
     sh=>{sh.querySelector('[data-x="no"]').onclick=closeSheet;sh.onsubmit=async e=>{e.preventDefault();try{await api("api_guardarAviso",sh.querySelector("#avT").value);closeSheet();toast("Aviso actualizado");loadInicio();}catch(x){toast(errMsg(x));}};});
