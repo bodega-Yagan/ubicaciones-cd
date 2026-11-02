@@ -600,14 +600,14 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 /* Si en internet hay una versión más nueva de la página que la que se está mostrando, recargar una vez con la nueva. */
-const BUILD="2026-11-02c";
+const BUILD="2026-11-02d";
 async function selfUpdate(){
   try{const t=await (await fetch("index.html?b="+Date.now(),{cache:"no-store"})).text();const m=t.match(/const BUILD="([^"]+)"/);
     if(m&&m[1]!==BUILD){const k="ucd_upd_"+m[1];if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");location.replace(location.pathname+"?v="+Date.now());}}catch(e){}
 }
 window.addEventListener("load",()=>setTimeout(selfUpdate,1500));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)selfUpdate();});
-const CLIENT_VERSION="22";let SERVER_VERSION=0;
+const CLIENT_VERSION="23";let SERVER_VERSION=0;
 async function checkVersion(){
   try{QUIET.add("api_estado");const e=await call("api_estado");QUIET.delete("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
     $("#verBanner").innerHTML=e.version&&(parseFloat(e.version)||0)>(parseFloat(CLIENT_VERSION)||0)?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.replace(location.pathname+'?v='+Date.now())">Cargar</button></div>`:"";
