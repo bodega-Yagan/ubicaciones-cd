@@ -600,14 +600,14 @@ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dat
 $("#btnMenu").onclick=()=>accountSheet();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 /* Si en internet hay una versión más nueva de la página que la que se está mostrando, recargar una vez con la nueva. */
-const BUILD="2026-11-02a";
+const BUILD="2026-11-02b";
 async function selfUpdate(){
   try{const t=await (await fetch("index.html?b="+Date.now(),{cache:"no-store"})).text();const m=t.match(/const BUILD="([^"]+)"/);
     if(m&&m[1]!==BUILD){const k="ucd_upd_"+m[1];if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1");location.replace(location.pathname+"?v="+Date.now());}}catch(e){}
 }
 window.addEventListener("load",()=>setTimeout(selfUpdate,1500));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)selfUpdate();});
-const CLIENT_VERSION="21";let SERVER_VERSION=0;
+const CLIENT_VERSION="22";let SERVER_VERSION=0;
 async function checkVersion(){
   try{QUIET.add("api_estado");const e=await call("api_estado");QUIET.delete("api_estado");SERVER_VERSION=parseFloat(e.version)||0;
     $("#verBanner").innerHTML=e.version&&(parseFloat(e.version)||0)>(parseFloat(CLIENT_VERSION)||0)?`<div class="banner warn" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px"><span>Hay una versión nueva de la app.</span><button type="button" class="sm primary" onclick="location.replace(location.pathname+'?v='+Date.now())">Cargar</button></div>`:"";
@@ -1337,9 +1337,10 @@ function renderInicio(){
   // 3. Zonas
   const z=k=>H.zonas.find(x=>x.zona===k)||{unidades:0,ubicaciones:0,skus:0},pk=z("Picking"),bc=z("Racks");
   /* Total de ubicaciones registradas (incluye las vacías y en Stock 0) además de las que tienen stock. */
-  const regZ={},regA={};L.items.forEach(l=>{const u=norm(l[0]),zz=zoneOf(u);if(zz)regZ[zz]=(regZ[zz]||0)+1;if(/^(PK|BC)[A-Z]/.test(u)){const a=u.slice(0,3);regA[a]=(regA[a]||0)+1;}});
+  const regZ={},regA={};L.items.forEach(l=>{const u=norm(l[0]),zz=zoneOf(u);if(zz)regZ[zz]=(regZ[zz]||0)+1;if(/^[A-Z]{3}/.test(u)&&u.length>3){const a=u.slice(0,3);regA[a]=(regA[a]||0)+1;}});
   const pas=H.pasillos.map(p=>({...p,total:Math.max(p.ubicaciones,regA[p.pasillo]||0)}));
-  Object.keys(regA).forEach(a=>{if(!pas.some(p=>p.pasillo===a))pas.push({pasillo:a,zona:zoneOf(a),unidades:0,ubicaciones:0,total:regA[a]});});
+  Object.keys(regA).forEach(a=>{if(!pas.some(p=>p.pasillo===a))pas.push({pasillo:a,zona:zoneOf(a)||"Otras",unidades:0,ubicaciones:0,total:regA[a]});});
+  pas.forEach(p=>{if(p.pasillo!=="Otras"&&!zoneOf(p.pasillo))p.zona="Zona "+p.pasillo.slice(0,2);});
   pas.sort((a,b)=>a.pasillo.localeCompare(b.pasillo));
   const ubTxt=(con,tot)=>tot>con?`${tot} ubicaciones · ${con} con stock`:`${tot} ubicaciones`;
   const maxP=Math.max(1,...pas.map(p=>p.unidades));
